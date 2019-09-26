@@ -55,9 +55,9 @@ credit_bag_grid <- function(data){
 credit_format_output <- function(output){
   out_df <- data.frame(matrix(ncol=6, nrow=0))
   colnames(out_df) <- c("reg_1", "reg_0", "frw_1", "frw_0", "true", "ID")
-  for(i in seq(1, 54, 6)){
+  for(i in seq(0, 53, 1)){
     print(i)
-    temp_list <- output[i:(i+5)]
+    temp_list <- output[((i*6)+1):((i*6)+6)]
     print(temp_list)
     temp_df <- data.frame(temp_list)
     out_df <- rbind(out_df, temp_df)

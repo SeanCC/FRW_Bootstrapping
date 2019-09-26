@@ -48,19 +48,17 @@ iris_bag_grid <- function(data){
   return(outputs)
 }
 
+
 iris_format_output <- function(output){
-  out_df <- data.frame(matrix(ncol=6, nrow=0))
-  colnames(out_df) <- c("reg_1", "reg_0", "frw_1", "frw_0", "true", "ID")
-  for(i in seq(1, 54, 6)){
-    print(i)
-    temp_list <- output[i:(i+5)]
-    print(temp_list)
+  out_df <- data.frame(matrix(ncol=8, nrow=0))
+  colnames(out_df) <- c("reg_setosa", "reg_versicolor", "reg_virginica", "frw_setosa", "frw_versicolor", "frw_virginica", "true", "ID")
+  for(i in seq(0, 53, 1)){
+    temp_list <- output[((i*8)+1):((i*8)+8)]
     temp_df <- data.frame(temp_list)
     out_df <- rbind(out_df, temp_df)
   }
   return(out_df)
 }
-
 
 
 
