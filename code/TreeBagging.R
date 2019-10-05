@@ -1,5 +1,6 @@
 library(MCMCpack)
 library(rpart)
+library(data.table)
 
 bootstrap_tree <- function(dataset, factors, group, train_size,tree_control){
   samp <- bootstrap(dataset, train_size, TRUE)
@@ -52,7 +53,10 @@ FRW_Bag <- function(dataset, tree_count, factors, group,tree_control=NA){
   return(frwbag)
 }
 
-Reg_RF <- function(dataset, tree_count, factors, group, train_size, max_fac=5, tree_control=NA){
+Reg_RF <- function(dataset, tree_count, factors, group, train_size=0, max_fac=5, tree_control=NA){
+  if(train_size==0){
+    train_size = nrow(dataset)
+  }
   subfac <- function(){
     facs <- sample(factors, max_fac)
     return(facs)
@@ -78,9 +82,39 @@ bag_prediction <- function(bag, datapoint){
   return(names(sort(table(predictions))[1]))
 }
 
+bag_prediction_df <- function(bag, test_data){
+  predictions <- lapply(seq(1, nrow(test_data)), function(x) bag_prediction(bag, test_data[x,]))
+  predictions_df <- do.call(rbind, predictions)
+  return(predictions_df)
+}
+
+# Returns the class vote that each tree made
 bag_prediction_long <- function(bag, datapoint){
   predictions <- unlist(lapply(seq(1, length(bag)), function(x) tree_prediction(bag[[x]], datapoint)))
   return(predictions)
+}
+
+# Returns proportion of tree votes for probability
+bag_prediction_prob <- function(bag, datapoint, classes){
+  predictions <- bag_prediction_long(bag, datapoint)
+  counts <- as.data.frame(table(predictions))
+  counts$Freq <- counts$Freq/length(predictions)
+  for(class in classes){
+    if(!(is.element(class, counts$predictions))){
+      new_row <- list(class, 0)
+      counts <- rbindlist(list(counts, new_row))
+    }
+  }
+  return(counts)
+}
+
+bag_prediction_prob_df <- function(bag, test_data, classes){
+  prob_preds <- lapply(seq(1, nrow(test_data)), function(x) bag_prediction_prob(bag, test_data[x,], classes))
+  out_df <- do.call(rbind, prob_preds)
+  colnames(out_df) <- c("Class", "Probability")
+  out_df$pred_ID <- ceiling(as.numeric(rownames(out_df))/length(classes))
+  out_df <- dcast(data=out_df, formula=pred_ID~Class, value.var="Probability")
+  return(out_df)
 }
 
 bag_prediction_probs <- function(bag, datapoint, classes){

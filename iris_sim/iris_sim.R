@@ -13,15 +13,33 @@ iris_bag_test <- function(data, fac, grp, trees, min_split, max_depth, complexit
   control <- rpart.control(minsplit=min_split, maxdepth = max_depth, cp=complexity)
   rbag <- Reg_Bag(train, trees, fac, grp, tree_control=control)
   frwbag <- FRW_Bag(train, trees, fac, grp, tree_control=control)
-  rpredicts <- lapply(seq(1, nrow(test)), function(x) bag_prediction_probs(rbag, test[x,], classes))
-  rpredicts <- as.data.frame(do.call(rbind, rpredicts))
-  colnames(rpredicts) <- lapply(classes, function(x) return(paste("reg_", x, sep="")))
-  frwpredicts <- lapply(seq(1, nrow(test)), function(x) bag_prediction_probs(frwbag, test[x,], classes))
-  frwpredicts <- as.data.frame(do.call(rbind, frwpredicts))
-  colnames(frwpredicts) <- lapply(classes, function(x) return(paste("frw_", x, sep="")))
-  results <- cbind(rpredicts, frwpredicts)
+  
+  reg_pred_prob <- bag_prediction_prob_df(rbag, test, classes)
+  frw_pred_prob <- bag_prediction_prob_df(frwbag, test, classes)
+  rpnames <- colnames(reg_pred_prob)
+  rpnames <- paste(rpnames, "_reg_prob", sep="")
+  frwnames <- colnames(frw_pred_prob)
+  frwnames <- paste(frwnames, "_frw_prob", sep="")
+  colnames(reg_pred_prob) <- rpnames
+  colnames(frw_pred_prob) <- frwnames
+  reg_pred_class <- bag_prediction_df(rbag, test)
+  frw_pred_class <- bag_prediction_df(frwbag, test)
+  colnames(reg_pred_class) <- c("Reg_Predicted_Class")
+  colnames(frw_pred_class) <- c("FRW_Predicted_Class")
+  
+  results <- cbind(reg_pred_class, frw_pred_class, reg_pred_prob, frw_pred_prob)
   results$true <- test[,grp]
   results$ID <- Sys.time()
+  results$train_count_setosa <- nrow(train[train[,grp] == "setosa",])
+  results$train_count_versicolor <- nrow(train[train[,grp] == "versicolor",])
+  results$train_count_virginica <- nrow(train[train[,grp] == "virginica",])
+  results$test_count_setosa <- nrow(test[test[,grp] == "setosa",])
+  results$test_count_versicolor <- nrow(test[test[,grp] == "versicolor",])
+  results$test_count_virginica <- nrow(test[test[,grp] == "virginica",])
+  results$md <- max_depth
+  results$ms <- min_split
+  results$complexity <- complexity
+  results$tree_count <- trees
   return(results)
 }
 
@@ -49,11 +67,15 @@ iris_bag_grid <- function(data){
 }
 
 
+
+
+
+
 iris_format_output <- function(output){
-  out_df <- data.frame(matrix(ncol=8, nrow=0))
-  colnames(out_df) <- c("reg_setosa", "reg_versicolor", "reg_virginica", "frw_setosa", "frw_versicolor", "frw_virginica", "true", "ID")
+  out_df <- data.frame(matrix(ncol=22, nrow=0))
+  colnames(out_df) <- c("Reg_Predicted_Class", "FRW_Predicted_Class", "pred_ID_reg_prob", "setosa_reg_prob", "versicolor_reg_prob", "virginica_reg_prob", "pred_ID_frw_prob", "setosa_frw_prob", "versicolor_frw_prob", "virginica_frw_prob", "true", "ID", "train_count_setosa", "train_count_versicolor", "train_count_virginica", "test_count_setosa", "test_count_versiolor", "test_count_virginica", "md", "ms", "complexity", "tree_count")
   for(i in seq(0, 53, 1)){
-    temp_list <- output[((i*8)+1):((i*8)+8)]
+    temp_list <- output[((i*22)+1):((i*22)+22)]
     temp_df <- data.frame(temp_list)
     out_df <- rbind(out_df, temp_df)
   }
