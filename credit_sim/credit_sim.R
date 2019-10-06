@@ -1,4 +1,6 @@
-library(ROCR)
+#library(ROCR)
+#library(pROC)
+library(MLmetrics)
 
 credit_subset_data <- function(data, train_size){
   train_ind <- sample(nrow(data), train_size)
@@ -141,6 +143,68 @@ normalize_credit_output <- function(output){
   return(output)
 }
 
+
+cc_report <- function(output){
+  IDs <- unique(output$ID)
+  out_df <- as.data.frame(matrix(ncol=28, nrow=0))
+  index <- 1
+  for(ID in IDs){
+    temp_df <- output[output$ID == ID,]
+
+    reg_auc <- AUC(temp_df$X1_reg_prob, temp_df$true)
+    frw_auc <- AUC(temp_df$X1_frw_prob, temp_df$true)
+    reg_prauc <- PRAUC(temp_df$X1_reg_prob, temp_df$true)
+    frw_prauc <- PRAUC(temp_df$X1_frw_prob, temp_df$true)
+    
+    
+    
+    count_1 <- nrow(temp_df[temp_df$true == 1,])
+    count_0 <- nrow(temp_df[temp_df$true == 0,])
+    train_1 <- temp_df[1,"train_count_1"]
+    train_0 <- temp_df[1,"train_count_0"]
+    test_1 <- temp_df[1,"test_count_1"]
+    test_0 <- temp_df[1,"test_count_0"]
+    train_row_count <- temp_df[1,"train_row_count"]
+    complexity <- temp_df[1,"complexity"]
+    tree_count <- temp_df[1,"tree_count"]
+    max_depth <- temp_df[1,"md"]
+    
+    reg_1_count <- nrow(temp_df[temp_df$Reg_Predicted_Class == 1,])
+    reg_0_count <- nrow(temp_df[temp_df$Reg_Predicted_Class == 0,])
+    frw_1_count <- nrow(temp_df[temp_df$FRW_Predicted_Class == 1,])
+    frw_0_count <- nrow(temp_df[temp_df$FRW_Predicted_Class == 0,])
+    reg_1_correct <- nrow(temp_df[(temp_df$true == 1)&(temp_df$Reg_Predicted_Class == 1),])
+    reg_0_correct <- nrow(temp_df[(temp_df$true == 0) & (temp_df$Reg_Predicted_Class == 0),])
+    frw_1_correct <- nrow(temp_df[(temp_df$true == 1) & (temp_df$FRW_Predicted_Class == 1),])
+    frw_0_correct <- nrow(temp_df[(temp_df$true == 0) & (temp_df$FRW_Predicted_Class==0),])
+    
+    reg_prob_1_avg <- mean(temp_df[temp_df$true==1,"X1_reg_prob"])
+    frw_prob_1_avg <- mean(temp_df[temp_df$true==1,"X1_frw_prob"])
+    reg_prob_0_avg <- mean(temp_df[temp_df$true==0, "X1_reg_prob"])
+    frw_prob_0_avg <- mean(temp_df[temp_df$true==0, "X1_frw_prob"])
+    
+    reg_1_recall <- reg_1_correct/count_1
+    reg_0_recall <- reg_0_correct/count_0
+    frw_1_recall <- frw_1_correct/count_1
+    frw_0_recall <- frw_0_correct/count_0
+    reg_1_precision <- reg_1_correct/reg_1_count
+    reg_0_precision <- reg_0_correct/reg_0_count
+    frw_1_precision <- frw_1_correct/frw_1_count
+    frw_0_precision <- frw_0_correct/frw_0_count
+    
+    row <- c(train_row_count, train_0, train_1, count_0, count_1, complexity, max_depth, tree_count, reg_auc, frw_auc,
+             reg_prauc, frw_prauc, reg_prob_1_avg, frw_prob_1_avg, reg_prob_0_avg, frw_prob_0_avg,
+             reg_0_correct, reg_1_correct, frw_0_correct, frw_1_correct, reg_1_recall, reg_0_recall, frw_1_recall, frw_0_recall,
+             reg_1_precision, reg_0_precision, frw_1_precision, frw_0_precision)
+    out_df[index,] <- row
+    index <- index+1
+  }
+  colnames(out_df) <- c("train_row_count", "train_0", "train_1", "count_0", "count_1", "complexity", "max_depth", "tree_count", "reg_auc", "frw_auc", 
+                        "reg_prauc", "frw_prauc", "reg_prob_1_avg", "frw_prob_1_avg", "reg_prob_0_avg", "frw_prob_0_avg",
+                        "reg_0_correct", "reg_1_correct", "frw_0_correct", "frw_1_correct", "reg_1_recall", "reg_0_recall", "frw_1_recall", "frw_0_recall",
+                        "reg_1_precision", "reg_0_precision", "frw_1_precision", "frw_0_precision")
+  return(out_df)
+}
 
 create_report_df <- function(output){
   output$pred_reg <- round(output$reg_1)
