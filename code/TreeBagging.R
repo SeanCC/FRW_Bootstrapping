@@ -79,7 +79,7 @@ FRW_RF <- function(dataset, tree_count, factors, group, max_fac=5,tree_control=N
 
 bag_prediction <- function(bag, datapoint){
   predictions <- unlist(lapply(seq(1, length(bag)), function(x) tree_prediction(bag[[x]], datapoint)))
-  return(names(sort(table(predictions))[1]))
+  return(names(sort(table(predictions), decreasing=TRUE)[1]))
 }
 
 bag_prediction_df <- function(bag, test_data){

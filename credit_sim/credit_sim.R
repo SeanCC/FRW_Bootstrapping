@@ -52,15 +52,16 @@ credit_bag_test <- function(credit, cfac, cgrp, trees, max_depth, complexity, tr
   return(results)
 }
 
+
 credit_bag_grid <- function(data){
   cfac <- colnames(data)
   cgrp <- cfac[31]
   cfac <- cfac[-31]
   
-  train_sizes <- c(3000, 5000, 10000)
-  max_depths <- c(2,3,5)
-  cps <- c(0.01, 0.05, 0.1)
-  trees <- c(100, 500)
+  train_sizes <- c(3000, 7500)
+  max_depths <- c(3, 7)
+  cps <- c(0.01, 0.1)
+  trees <- c(200, 600)
   outputs <- list()
   for(ts in train_sizes){
     for(md in max_depths){
@@ -76,48 +77,67 @@ credit_bag_grid <- function(data){
 }
 
 
-credit_rf_test <- function(credit, cfac, cgrp, fac_count, trees, max_depth, complexity){
-  classes <- unique(credit[,cgrp])
-  split <- credit_subset_data(credit)
-  train <- split[[1]]
-  test <- split[[2]]
-  control <- rpart.control(maxdepth = max_depth, cp=complexity)
-  rrf <- Reg_RF(train, trees, cfac, cgrp, max_fac=fac_count, tree_control=control)
-  frwrf <- FRW_RF(train, trees, cfac, cgrp, fac_count, control)
-  
-  rpredicts <- lapply(seq(1, nrow(test)), function(x) bag_prediction_probs(rrf, test[x,], classes))
-  rpredicts <- as.data.frame(do.call(rbind, rpredicts))
-  colnames(rpredicts) <- lapply(classes, function(x) return(paste("reg_", x, sep="")))
-  
-  frwpredicts <- lapply(seq(1, nrow(test)), function(x) bag_prediction_probs(frwrf, test[x,], classes))
-  frwpredicts <- as.data.frame(do.call(rbind, frwpredicts))
-  colnames(frwpredicts) <- lapply(classes, function(x) return(paste("frw_", x, sep="")))
-  results <- cbind(rpredicts, frwpredicts)
-  results$true <- test[,cgrp]
-  results$ID <- Sys.time()
-  return(results)
-}
-
 credit_rf_grid <- function(data){
   cfac <- colnames(data)
   cgrp <- cfac[31]
   cfac <- cfac[-31]
-  max_depths <- c(2,3,5)
-  cps <- c(0.01, 0.05, 0.1)
-  trees <- c(100, 500)
-  fac_count <- c(3, 5, 8, 12)
+  train_sizes <- c(3000, 7500)
+  max_depths <- c(3, 7)
+  cps <- c(0.01, 0.1)
+  trees <- c(200, 600)
+  num_fac <- c(3, 8, 12)
   outputs <- list()
-  for(md in max_depths){
-    for(cp in cps){
-      for(t in trees){
-        for(fc in fac_count){
-          test_df <- credit_rf_test(data, cfac, cgrp, fc, t, md, cp)
-          outputs <- c(outputs, test_df)
+  for(ts in train_sizes){
+    for(md in max_depths){
+      for(cp in cps){
+        for(t in trees){
+          for(nf in num_fac){
+            test_df <- credit_rf_test(data, cfac, cgrp, t, nf, md, cp, ts)
+            outputs <- c(outputs, test_df)
+          }
         }
       }
     }
   }
   return(outputs)
+}
+
+
+credit_rf_test <- function(credit, cfac, cgrp, trees, num_fac, max_depth, complexity, train_size){
+  classes <- unique(credit[,cgrp])
+  split <- credit_subset_data(credit, train_size)
+  train <- split[[1]]
+  test <- split[[2]]
+  control <- rpart.control(maxdepth = max_depth, cp=complexity)
+  rbag <- Reg_RF(train, trees, cfac, cgrp, max_fac=num_fac, tree_control=control)
+  frwbag <- FRW_RF(train, trees, cfac, cgrp, max_fac=num_fac, tree_control=control)
+  
+  reg_pred_prob <- bag_prediction_prob_df(rbag, test, classes)
+  frw_pred_prob <- bag_prediction_prob_df(frwbag, test, classes)
+  rpnames <- colnames(reg_pred_prob)
+  rpnames <- paste(rpnames, "_reg_prob", sep="")
+  frwnames <- colnames(frw_pred_prob)
+  frwnames <- paste(frwnames, "_frw_prob", sep="")
+  colnames(reg_pred_prob) <- rpnames
+  colnames(frw_pred_prob) <- frwnames
+  reg_pred_class <- bag_prediction_df(rbag, test)
+  frw_pred_class <- bag_prediction_df(frwbag, test)
+  colnames(reg_pred_class) <- c("Reg_Predicted_Class")
+  colnames(frw_pred_class) <- c("FRW_Predicted_Class")
+  
+  results <- cbind(reg_pred_class, frw_pred_class, reg_pred_prob, frw_pred_prob)
+  results$true <- test[,cgrp]
+  results$ID <- Sys.time()
+  results$train_count_0 <- nrow(train[train[,cgrp] == 0,])
+  results$train_count_1 <- nrow(train[train[,cgrp] == 1,])
+  results$test_count_0 <- nrow(test[test[,cgrp] == 0,])
+  results$test_count_1 <- nrow(test[test[,cgrp] == 1,])
+  results$train_row_count <- train_size
+  results$md <- max_depth
+  results$complexity <- complexity
+  results$tree_count <- trees
+  results$num_fac <- num_fac
+  return(results)
 }
 
 
@@ -132,16 +152,6 @@ credit_format_output <- function(output){
   return(out_df)
 }
 
-
-normalize_credit_output <- function(output){
-  output$reg_sum <- output$reg_0 + output$reg_1
-  output$reg_0 <- output$reg_0/output$reg_sum
-  output$reg_1 <- output$reg_1/output$reg_sum
-  output$frw_sum <- output$frw_0 + output$frw_1
-  output$frw_0 <- output$frw_0/output$frw_sum
-  output$frw_1 <- output$frw_1/output$frw_sum
-  return(output)
-}
 
 
 cc_report <- function(output){
