@@ -1,10 +1,7 @@
-creditcard.csv
 processed.cleveland.data
-.Rproj.user
+*.Rproj.user
 *.Rproj
 *.RData
-credit_prob_reg_grid.csv
-credit_prob_rf_out.csv
-Normalized_credit_prob_grid.csv
-Normalized_credit_prof_rf_grid.csv
-heart_prob_output_reg_grid.csv
+*.csv
+*.xlsx
+*.arff

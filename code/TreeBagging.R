@@ -94,8 +94,8 @@ bag_prediction_long <- function(bag, datapoint){
   return(predictions)
 }
 
-# Returns proportion of tree votes for probability
-bag_prediction_prob <- function(bag, datapoint, classes){
+# Probability prediction using tree proportion
+bag_prediction_prop <- function(bag, datapoint, classes){
   predictions <- bag_prediction_long(bag, datapoint)
   counts <- as.data.frame(table(predictions))
   counts$Freq <- counts$Freq/length(predictions)
@@ -108,24 +108,36 @@ bag_prediction_prob <- function(bag, datapoint, classes){
   return(counts)
 }
 
-bag_prediction_prob_df <- function(bag, test_data, classes){
-  prob_preds <- lapply(seq(1, nrow(test_data)), function(x) bag_prediction_prob(bag, test_data[x,], classes))
-  out_df <- do.call(rbind, prob_preds)
+bag_prediction_prop_df <- function(bag, test_data, classes){
+  prop_preds <- lapply(seq(1, nrow(test_data)), function(x) bag_prediction_prop(bag, test_data[x,], classes))
+  out_df <- do.call(rbind, prop_preds)
   colnames(out_df) <- c("Class", "Probability")
   out_df$pred_ID <- ceiling(as.numeric(rownames(out_df))/length(classes))
   out_df <- dcast(data=out_df, formula=pred_ID~Class, value.var="Probability")
   return(out_df)
 }
 
-bag_prediction_probs <- function(bag, datapoint, classes){
-  predictions <- lapply(seq(1, length(bag)), function(x) unlist(tree_prediction_prob(bag[[x]], datapoint, classes)))
-  prediction_df <- t(data.frame(predictions))
+# Probability prediction using response function
+bag_prediction_prob_df <- function(bag, test_data, classes){
+  prob_preds <- lapply(seq(1, nrow(test_data)), function(x) bag_prediction_prob(bag, test_data[x,], classes))
+  out_df <- do.call(rbind, prob_preds)
+  return(out_df)
+}
+
+bag_prediction_prob <- function(bag, datapoint, classes){
+  #predictions <- lapply(seq(1, length(bag)), function(x) unlist(tree_prediction_prob(bag[[x]], datapoint, classes)))
+  predictions <- lapply(seq(1, length(bag)), function(x) tree_prediction_prob(bag[[x]], datapoint, classes))
+  #prediction_df <- t(data.frame(predictions))
+  prediction_df <- do.call(rbind, predictions)
+  #colnames(prediction_df) <- classes
   return(colMeans(prediction_df))
 }
 
 bag_prediction_probs_long <- function(bag, datapoint, classes){
-  predictions <- lapply(seq(1, length(bag)), function(x) unlist(tree_prediction_prob(bag[[x]], datapoint, classes)))
-  prediction_df <- t(data.frame(predictions))
+  #predictions <- lapply(seq(1, length(bag)), function(x) unlist(tree_prediction_prob(bag[[x]], datapoint, classes)))
+  #prediction_df <- t(data.frame(predictions))
+  predictions <- lapply(seq(1, length(bag)), function(x) tree_prediction_prob(bag[[x]], datapoint, classes))
+  prediction_df <- do.call(rbind, predictions)
   return(prediction_df)
 }
 
@@ -140,20 +152,26 @@ tree_prediction <- function(tree, datapoint){
 }
 
 tree_prediction_prob <- function(tree, datapoint, classes){
-  pvec <- list(rep(0, length(classes)))
+  pvec <- rep(0, length(classes))
+  prediction_df <- as.data.frame(matrix(nrow=0, ncol=length(classes)))
+  prediction_df <- rbind(prediction_df, pvec)
+  colnames(prediction_df) <- classes
   if(is.character(tree)){
-    p_ind <- match(tree, classes)
-    pvec[p_ind] <- 1.0
-    return(pvec)
+    #p_ind <- match(tree, classes)
+    #pvec[p_ind] <- 1.0
+    #return(pvec)
+    prediction_df[1,tree] <- 1
   }
   else{
     prediction <- predict(tree, datapoint, type="prob")
     pclasses <- dimnames(prediction)[[2]]
     for(i in seq(1, length(pclasses))){
-      pvec[match(pclasses[i], classes)] <- prediction[1,i]
+      #pvec[match(pclasses[i], classes)] <- prediction[i]
+      prediction_df[1,pclasses[i]] <- prediction[i]
     }
-    return(pvec)
+    #return(pvec)
   }
+  return(prediction_df)
 }
 
 bootstrap <- function(dataset, count, replacement){
